@@ -1,8 +1,3 @@
-import pip
-pip.main(['install', 'setuptools', '--upgrade'])
-
-import distutils
-
 import streamlit as st
 import yfinance as yf
 import numpy as np
@@ -20,8 +15,7 @@ import os
 import warnings
 
 # Suppress warnings
-warnings.filterwarnings('ignore', message='.*missing ScriptRunContext.*')
-warnings.filterwarnings('ignore', message='.*No runtime found.*')
+warnings.filterwarnings('ignore')
 
 # Set environment variables
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -32,7 +26,7 @@ tf.get_logger().setLevel('ERROR')
 
 # Streamlit page config
 st.set_page_config(
-    page_title="Advanced Stock Price Prediction",
+    page_title="Stock Price Prediction",
     page_icon="📈",
     layout="wide"
 )
@@ -63,28 +57,24 @@ def create_model(time_steps, n_features, lstm_units_1, lstm_units_2, dense_units
     
     model.compile(optimizer='adam', loss='mean_squared_error')
     return model
-def add_core_indicators(df):
-    """Add technical indicators to dataframe"""
-    strategy = ta.Strategy(
-        name="Core Technical Indicators",
-        description="RSI, MACD, and Bollinger Bands",
-        ta=[
-            {"kind": "rsi", "length": 14},
-            {"kind": "macd", "fast": 12, "slow": 26},
-            {"kind": "bbands", "length": 20}
-        ]
-    )
-    df.ta.strategy(strategy)
-    # Replace deprecated fillna method with ffill and bfill
+
+def add_indicators(df):
+    """Add RSI and SMA indicators to dataframe"""
+    # Add RSI
+    df['RSI'] = ta.rsi(df['Close'], length=14)
+    
+    # Add SMA (Simple Moving Average)
+    df['SMA'] = ta.sma(df['Close'], length=20)
+    
+    # Forward fill and backward fill NaN values
     df = df.ffill().bfill()
     return df
-
 
 def prepare_stock_data(data_True):
     """Prepare stock data with indicators"""
     dates = pd.DatetimeIndex(pd.to_datetime(data_True.index))
-    df_with_indicators = add_core_indicators(data_True)
-    feature_columns = ['Close', 'RSI_14', 'MACD_12_26_9', 'BBL_20_2.0', 'BBM_20_2.0', 'BBU_20_2.0']
+    df_with_indicators = add_indicators(data_True)
+    feature_columns = ['Close', 'RSI', 'SMA']
     features = df_with_indicators[feature_columns].values
     return features, dates, df_with_indicators
 
@@ -98,16 +88,12 @@ def prepare_data(data, time_steps):
         y.append(scaled_data[i + time_steps, 0])
     return np.array(X), np.array(y), scaler
 
-
-
-
 def predict_future(model, last_sequence, scaler, n_future):
     """Predict future stock prices"""
     future_predictions = []
     current_sequence = last_sequence.copy()
     
     for _ in range(n_future):
-        # Suppress warnings with tf.device context
         with tf.device('/CPU:0'):
             current_prediction = model.predict(current_sequence.reshape(1, *current_sequence.shape), verbose=0)
         
@@ -127,11 +113,11 @@ def plot_all_data(dates, df_indicators, actual_values, train_predictions, test_p
                   future_dates, future_predictions, train_size, time_steps, ticker):
     """Create interactive plotly chart"""
     fig = make_subplots(
-        rows=4, cols=1, 
+        rows=3, cols=1, 
         shared_xaxes=True,
         vertical_spacing=0.05,
-        subplot_titles=('Price Predictions', 'RSI', 'MACD', 'Volume'),
-        row_heights=[0.4, 0.2, 0.2, 0.2]
+        subplot_titles=('Price Predictions', 'RSI', 'Volume'),
+        row_heights=[0.5, 0.25, 0.25]
     )
 
     plot_dates = dates[time_steps:]
@@ -140,6 +126,11 @@ def plot_all_data(dates, df_indicators, actual_values, train_predictions, test_p
     fig.add_trace(
         go.Scatter(x=plot_dates, y=actual_values.flatten(),
                   name='Actual Price', line=dict(color='blue')), row=1, col=1)
+    
+    # Add SMA
+    fig.add_trace(
+        go.Scatter(x=df_indicators.index, y=df_indicators['SMA'],
+                  name='20-day SMA', line=dict(color='orange')), row=1, col=1)
     
     # Training predictions
     train_dates = plot_dates[:train_size]
@@ -158,50 +149,32 @@ def plot_all_data(dates, df_indicators, actual_values, train_predictions, test_p
         go.Scatter(x=future_dates, y=future_predictions.flatten(),
                   name='Future Predictions', line=dict(color='purple', dash='dash')), row=1, col=1)
     
-    # Bollinger Bands
-    fig.add_trace(
-        go.Scatter(x=df_indicators.index, y=df_indicators['BBU_20_2.0'],
-                  name='Upper BB', line=dict(color='gray', dash='dot')), row=1, col=1)
-    fig.add_trace(
-        go.Scatter(x=df_indicators.index, y=df_indicators['BBL_20_2.0'],
-                  name='Lower BB', line=dict(color='gray', dash='dot')), row=1, col=1)
-    
     # RSI
     fig.add_trace(
-        go.Scatter(x=df_indicators.index, y=df_indicators['RSI_14'],
-                  name='RSI', line=dict(color='orange')), row=2, col=1)
+        go.Scatter(x=df_indicators.index, y=df_indicators['RSI'],
+                  name='RSI', line=dict(color='blue')), row=2, col=1)
     fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
     fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
-    
-    # MACD
-    fig.add_trace(
-        go.Scatter(x=df_indicators.index, y=df_indicators['MACD_12_26_9'],
-                  name='MACD', line=dict(color='blue')), row=3, col=1)
-    fig.add_trace(
-        go.Scatter(x=df_indicators.index, y=df_indicators['MACDs_12_26_9'],
-                  name='Signal', line=dict(color='red')), row=3, col=1)
     
     # Volume
     fig.add_trace(
         go.Bar(x=df_indicators.index, y=df_indicators['Volume'],
-               name='Volume'), row=4, col=1)
+               name='Volume'), row=3, col=1)
 
     fig.update_layout(
         title=f'{ticker} Stock Analysis and Predictions',
-        height=1200,
+        height=1000,
         showlegend=True,
-        xaxis4_title='Date',
+        xaxis3_title='Date',
         yaxis_title='Price',
         yaxis2_title='RSI',
-        yaxis3_title='MACD',
-        yaxis4_title='Volume'
+        yaxis3_title='Volume'
     )
 
     return fig
 
-
 def main():
-    st.title("Advanced Stock Price Prediction with Customizable Parameters")
+    st.title("Stock Price Prediction with RSI and SMA")
     
     # Create two main columns
     left_col, right_col = st.columns([2, 1])
@@ -266,7 +239,7 @@ def main():
                         progress_bar.progress(progress)
                         status_text.text(f'Training Progress: {int(progress * 100)}%')
                 
-                # Create and train model with custom parameters
+                # Create and train model
                 model = create_model(
                     time_steps, 
                     n_features, 
