@@ -3,7 +3,7 @@ yfinance==0.2.26
 numpy==1.26.4
 pandas==2.2.3
 pandas-ta==0.3.14b0
-scikit-learn==1.2.2
+scikit-learn==1.2.1
 tensorflow==2.18.0
 plotly==5.24.1
 
