@@ -64,7 +64,7 @@ def add_indicators(df):
     df['RSI'] = ta.rsi(df['Close'], length=14)
     
     # Add SMA (Simple Moving Average)
-    df['SMA'] = ta.sma(df['Close'], length=20)
+    df['SMA'] = ta.sma(df['Close'], length=9)
     
     # Forward fill and backward fill NaN values
     df = df.ffill().bfill()
