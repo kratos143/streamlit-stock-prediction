@@ -130,7 +130,7 @@ def plot_all_data(dates, df_indicators, actual_values, train_predictions, test_p
     # Add SMA
     fig.add_trace(
         go.Scatter(x=df_indicators.index, y=df_indicators['SMA'],
-                  name='20-day SMA', line=dict(color='orange')), row=1, col=1)
+                  name='9-day SMA', line=dict(color='orange')), row=1, col=1)
     
     # Training predictions
     train_dates = plot_dates[:train_size]
