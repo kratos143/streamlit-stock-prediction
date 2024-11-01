@@ -1,3 +1,6 @@
+import pip
+pip.main(['install', 'setuptools', '--upgrade'])
+
 import distutils
 
 import streamlit as st
