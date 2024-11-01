@@ -58,22 +58,22 @@ def create_model(time_steps, n_features, lstm_units_1, lstm_units_2, dense_units
     model.compile(optimizer='adam', loss='mean_squared_error')
     return model
 
-def add_indicators(df, rsi_length, sma_period):
-    """Add RSI and SMA indicators to dataframe with customizable periods"""
+def add_indicators(df):
+    """Add RSI and SMA indicators to dataframe"""
     # Add RSI
-    df['RSI'] = ta.rsi(df['Close'], length=rsi_length)
+    df['RSI'] = ta.rsi(df['Close'], length=14)
     
     # Add SMA (Simple Moving Average)
-    df['SMA'] = ta.sma(df['Close'], length=sma_period)
+    df['SMA'] = ta.sma(df['Close'], length=20)
     
     # Forward fill and backward fill NaN values
     df = df.ffill().bfill()
     return df
 
-def prepare_stock_data(data_True, rsi_length, sma_period):
+def prepare_stock_data(data_True):
     """Prepare stock data with indicators"""
     dates = pd.DatetimeIndex(pd.to_datetime(data_True.index))
-    df_with_indicators = add_indicators(data_True.copy(), rsi_length, sma_period)
+    df_with_indicators = add_indicators(data_True)
     feature_columns = ['Close', 'RSI', 'SMA']
     features = df_with_indicators[feature_columns].values
     return features, dates, df_with_indicators
@@ -110,7 +110,7 @@ def predict_future(model, last_sequence, scaler, n_future):
     return np.array(future_predictions).reshape(-1, 1)
 
 def plot_all_data(dates, df_indicators, actual_values, train_predictions, test_predictions, 
-                  future_dates, future_predictions, train_size, time_steps, ticker, sma_period):
+                  future_dates, future_predictions, train_size, time_steps, ticker):
     """Create interactive plotly chart"""
     fig = make_subplots(
         rows=3, cols=1, 
@@ -130,7 +130,7 @@ def plot_all_data(dates, df_indicators, actual_values, train_predictions, test_p
     # Add SMA
     fig.add_trace(
         go.Scatter(x=df_indicators.index, y=df_indicators['SMA'],
-                  name=f'{sma_period}-day SMA', line=dict(color='orange')), row=1, col=1)
+                  name='20-day SMA', line=dict(color='orange')), row=1, col=1)
     
     # Training predictions
     train_dates = plot_dates[:train_size]
@@ -174,7 +174,7 @@ def plot_all_data(dates, df_indicators, actual_values, train_predictions, test_p
     return fig
 
 def main():
-    st.title("Stock Price Prediction with Customizable RSI and SMA")
+    st.title("Stock Price Prediction with RSI and SMA")
     
     # Create two main columns
     left_col, right_col = st.columns([2, 1])
@@ -184,18 +184,7 @@ def main():
         ticker = st.text_input("Enter Stock Ticker Symbol (e.g., AAPL, MSFT):", value="AAPL")
         future_days = st.slider("Future days to predict:", 1, 60, value=30)
         
-        # Technical Indicator Parameters
-        st.subheader("Technical Indicators")
-        col1, col2 = st.columns(2)
-        with col1:
-            rsi_length = st.slider("RSI Period:", 5, 30, 14)
-            st.info("Traditional RSI uses 14 periods")
-        with col2:
-            sma_period = st.slider("SMA Period:", 5, 200, 20)
-            st.info("Common SMA periods: 20, 50, 100, 200")
-        
         # Date selection
-        st.subheader("Date Range")
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("Start Date", pd.to_datetime("2021-01-01"))
@@ -229,8 +218,8 @@ def main():
                     st.error("No data found for this ticker and date range.")
                     return
 
-                # Prepare data with custom indicator periods
-                features, dates, df_indicators = prepare_stock_data(data, rsi_length, sma_period)
+                # Prepare data
+                features, dates, df_indicators = prepare_stock_data(data)
                 X, y, scaler = prepare_data(features, time_steps)
                 
                 # Split data using the user-defined split
@@ -314,7 +303,7 @@ def main():
                 # Plot results
                 fig = plot_all_data(dates, df_indicators, actual_values, train_predictions, 
                                   test_predictions, future_dates, future_predictions, 
-                                  train_size, time_steps, ticker, sma_period)
+                                  train_size, time_steps, ticker)
                 st.plotly_chart(fig, use_container_width=True)
                 
                 # Display predictions table
