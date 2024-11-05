@@ -59,12 +59,15 @@ def create_model(time_steps, n_features, lstm_units_1, lstm_units_2, dense_units
     return model
 
 def add_indicators(df):
-    """Add RSI and SMA indicators to dataframe"""
+    """Add RSI, SMA, and open price to dataframe"""
     # Add RSI
     df['RSI'] = ta.rsi(df['Close'], length=14)
     
     # Add SMA (Simple Moving Average)
     df['SMA'] = ta.sma(df['Close'], length=9)
+    
+    # Add open price
+    df['Open'] = df['Open']
     
     # Forward fill and backward fill NaN values
     df = df.ffill().bfill()
@@ -74,11 +77,11 @@ def prepare_stock_data(data_True):
     """Prepare stock data with indicators"""
     dates = pd.DatetimeIndex(pd.to_datetime(data_True.index))
     df_with_indicators = add_indicators(data_True)
-    feature_columns = ['Close', 'RSI', 'SMA']
+    feature_columns = ['Close', 'Open', 'RSI', 'SMA']
     features = df_with_indicators[feature_columns].values
     return features, dates, df_with_indicators
 
-def prepare_data(data, time_steps):
+def def prepare_data(data, time_steps):
     """Prepare data for LSTM model"""
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaled_data = scaler.fit_transform(data)
