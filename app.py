@@ -81,7 +81,7 @@ def prepare_stock_data(data_True):
     features = df_with_indicators[feature_columns].values
     return features, dates, df_with_indicators
 
-def def prepare_data(data, time_steps):
+def prepare_data(data, time_steps):
     """Prepare data for LSTM model"""
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaled_data = scaler.fit_transform(data)
